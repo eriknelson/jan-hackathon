@@ -1,0 +1,93 @@
+cat <<EOF | kubectl --context dest --namespace testing-app create -f -
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: stateful-app-migration-
+spec:
+  pipelineSpec:
+    workspaces:
+    - name: kubeconfig
+    tasks:
+    - name: redis-data01
+      taskRef:
+        name: crane-transfer-pvc
+        kind: ClusterTask
+      params:
+      - name: src-context
+        value: src
+      - name: dest-context
+        value: dest
+      - name: dest-namespace
+        value: guestbook
+      - name: pvc-name
+        value: redis-data01
+      - name: endpoint-type
+        value: nginx-ingress
+      workspaces:
+      - name: kubeconfig
+        workspace: kubeconfig
+    - name: redis-data02
+      runAfter:
+      - redis-data01
+      taskRef:
+        name: crane-transfer-pvc
+        kind: ClusterTask
+      params:
+      - name: src-context
+        value: src
+      - name: dest-context
+        value: dest
+      - name: dest-namespace
+        value: guestbook
+      - name: pvc-name
+        value: redis-data02
+      - name: endpoint-type
+        value: nginx-ingress
+      workspaces:
+      - name: kubeconfig
+        workspace: kubeconfig
+    - name: wp-pv-claim
+      runAfter:
+      - redis-data02
+      taskRef:
+        name: crane-transfer-pvc
+        kind: ClusterTask
+      params:
+      - name: src-context
+        value: src
+      - name: dest-context
+        value: dest
+      - name: dest-namespace
+        value: testing-app
+      - name: pvc-name
+        value: wp-pv-claim
+      - name: endpoint-type
+        value: nginx-ingress
+      workspaces:
+      - name: kubeconfig
+        workspace: kubeconfig
+    - name: mysql-pv-claim
+      runAfter:
+      - wp-pv-claim
+      taskRef:
+        name: crane-transfer-pvc
+        kind: ClusterTask
+      params:
+      - name: src-context
+        value: src
+      - name: dest-context
+        value: dest
+      - name: dest-namespace
+        value: testing-app
+      - name: pvc-name
+        value: mysql-pv-claim
+      - name: endpoint-type
+        value: nginx-ingress
+      workspaces:
+      - name: kubeconfig
+        workspace: kubeconfig
+  workspaces:
+  - name: kubeconfig
+    secret:
+      secretName: kubeconfig
+EOF
