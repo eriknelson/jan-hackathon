@@ -1,0 +1,51 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: stateful-app-migration-
+spec:
+  pipelineSpec:
+    workspaces:
+    - name: kubeconfig
+    tasks:
+    - name: mariadb-data
+      taskRef:
+        name: crane-transfer-pvc
+        kind: ClusterTask
+      params:
+      - name: src-context
+        value: src
+      - name: dest-context
+        value: dest
+      - name: dest-namespace
+        value: mediawiki
+      - name: pvc-name
+        value: mariadb
+      - name: endpoint-type
+        value: nginx-ingress
+      workspaces:
+      - name: kubeconfig
+        workspace: kubeconfig
+    - name: mediawiki-data
+      runAfter:
+      - mariadb-data
+      taskRef:
+        name: crane-transfer-pvc
+        kind: ClusterTask
+      params:
+      - name: src-context
+        value: src
+      - name: dest-context
+        value: dest
+      - name: dest-namespace
+        value: mediawiki
+      - name: pvc-name
+        value: mediawiki
+      - name: endpoint-type
+        value: nginx-ingress
+      workspaces:
+      - name: kubeconfig
+        workspace: kubeconfig
+  workspaces:
+  - name: kubeconfig
+    secret:
+      secretName: kubeconfig
